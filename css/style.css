@@ -1,0 +1,158 @@
+:root {
+    --primary: #cba35c;
+    --bg-light: #f4f6f8;
+    --card-bg: #ffffff;
+    --text-main: #1d1d1f;
+    --text-muted: #86868b;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+    font-family: 'Outfit', sans-serif;
+}
+
+/* Glassmorphism Navigation */
+.glass-nav {
+    background: rgba(244, 246, 248, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* Bento Box Skeuomorphism (Neumorphism) Utilities */
+.skeuo-card {
+    background: var(--card-bg);
+    border-radius: 2.5rem;
+    box-shadow: 18px 18px 40px #d9dadd, -18px -18px 40px #ffffff;
+    border: 1px solid rgba(255,255,255,0.9);
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.skeuo-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 25px 25px 50px #d1d2d5, -25px -25px 50px #ffffff;
+}
+
+.skeuo-inner {
+    background: #eff1f3;
+    border-radius: 2rem;
+    box-shadow: inset 8px 8px 16px #dce0e3, inset -8px -8px 16px #ffffff;
+    border: 1px solid rgba(255,255,255,0.5);
+}
+
+.skeuo-btn {
+    background: linear-gradient(145deg, #ffffff, #e1e3e6);
+    border-radius: 999px;
+    box-shadow: 6px 6px 14px #d9dadd, -6px -6px 14px #ffffff;
+    font-weight: 600;
+    color: var(--text-main);
+    transition: all 0.2s ease;
+    border: 1px solid white;
+}
+.skeuo-btn:active {
+    background: #f4f6f8;
+    box-shadow: inset 6px 6px 12px #d9dadd, inset -6px -6px 12px #ffffff;
+    border-color: transparent;
+}
+
+.skeuo-primary {
+    background: linear-gradient(145deg, #dac18a, #b79353);
+    border-radius: 999px;
+    box-shadow: 6px 6px 15px #d9dadd, -6px -6px 15px #ffffff;
+    color: white;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+.skeuo-primary:active {
+    box-shadow: inset 4px 4px 10px #9e7f48, inset -4px -4px 10px #e1b465;
+}
+
+/* Bento Grid System */
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-auto-rows: minmax(min-content, max-content);
+    gap: 1.5rem;
+}
+
+/* Image Wrappers */
+.bento-img-wrap {
+    overflow: hidden;
+    border-radius: 2rem;
+}
+.bento-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.skeuo-card:hover .bento-img-wrap img {
+    transform: scale(1.05);
+}
+
+/* GSAP Will Handle Reveal, but initial classes if desired */
+.bento-reveal {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Preloader Animations */
+@keyframes pulse-light {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+.preloader-icon-light {
+    animation: pulse-light 2s infinite ease-in-out;
+    color: var(--primary);
+}
+
+.mix-blend-multiply-img img {
+    mix-blend-mode: multiply;
+}
+
+/* Hide scrollbar */
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+/* Ambient Moving Background Gradients */
+@keyframes ambient-float-1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(15%, -10%) scale(1.1); }
+    66% { transform: translate(-10%, 12%) scale(0.95); }
+}
+@keyframes ambient-float-2 {
+    0%, 100% { transform: translate(0, 0) scale(1.05); }
+    33% { transform: translate(-8%, 15%) scale(0.95); }
+    66% { transform: translate(12%, -8%) scale(1.1); }
+}
+@keyframes ambient-float-3 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(8%, 12%) scale(1.08); }
+    66% { transform: translate(-12%, -6%) scale(0.95); }
+}
+
+.ambient-blob-1 {
+    background: radial-gradient(circle, rgba(203,163,92,0.3) 0%, rgba(203,163,92,0) 70%);
+    animation: ambient-float-1 25s infinite alternate ease-in-out;
+    will-change: transform;
+}
+.ambient-blob-2 {
+    background: radial-gradient(circle, rgba(255,51,102,0.18) 0%, rgba(255,51,102,0) 70%);
+    animation: ambient-float-2 18s infinite alternate ease-in-out;
+    will-change: transform;
+}
+.ambient-blob-3 {
+    background: radial-gradient(circle, rgba(51,204,255,0.18) 0%, rgba(51,204,255,0) 70%);
+    animation: ambient-float-3 22s infinite alternate ease-in-out;
+    will-change: transform;
+}

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumiere | Interactive Smart Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        :root {
+            --primary: #cba35c;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0a0a0a;
+            color: #ffffff;
+            overflow: hidden; /* Lock scroll as it's a fixed simulation app */
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Outfit', sans-serif;
+        }
+        .glass-nav {
+            background: rgba(10, 10, 10, 0.4);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        /* The House Scene */
+        .scene-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        /* Make house background */
+        .house-bg {
+            background-image: url('simulator_house_night_1773496070189.png');
+            background-size: cover;
+            background-position: center;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+        }
+
+        /* Ambient Bloom Overlay simulating Roof LEDs */
+        .light-bloom-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            mix-blend-mode: screen;
+            opacity: 0; /* Starts OFF */
+            transition: opacity 0.5s ease;
+        }
+        
+        /* The continuous LED strip node logic */
+        .roof-strip {
+            position: absolute;
+            height: 4px;
+            background-color: currentColor;
+            border-radius: 999px;
+            box-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
+            filter: brightness(1.2);
+            transition: all 0.2s ease-out;
+        }
+
+        /* Ambient spill for realistic volume bloom spreading */
+        .roof-strip::before {
+            content: '';
+            position: absolute;
+            inset: -40px 0;
+            background: linear-gradient(to bottom, currentColor, transparent);
+            opacity: 0.15;
+            filter: blur(8px);
+        }
+
+        /* Phone Container UI */
+        .virtual-phone {
+            width: 340px;
+            height: 720px;
+            background: #000;
+            border: 14px solid #1a1a1a;
+            border-radius: 40px;
+            position: relative;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 0 0 2px #333;
+            overflow: hidden;
+            z-index: 10;
+            animation: float 6s ease-in-out infinite;
+            transform-style: preserve-3d;
+        }
+        .phone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 30px;
+            background: #1a1a1a;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            z-index: 20;
+        }
+        
+        /* App UI elements */
+        .app-bg {
+            background: #0f0f11;
+            height: 100%;
+            width: 100%;
+            padding: 40px 24px 24px 24px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        
+        .toggle-switch {
+            appearance: none;
+            width: 70px;
+            height: 36px;
+            background: #2a2a2c;
+            border-radius: 20px;
+            position: relative;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 30px;
+            height: 30px;
+            background: #fff;
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .toggle-switch:checked {
+            background: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+        }
+        .toggle-switch:checked::after {
+            transform: translateX(34px);
+        }
+
+        /* Parallax Container */
+        .parallax-wrapper {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10vw;
+            pointer-events: none; /* Let clicks pass to house if needed, but we capture on phone */
+        }
+        .virtual-phone {
+            pointer-events: auto; /* Re-enable clicks on phone */
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        /* Mobile specific layout overrides */
+        @media (max-width: 768px) {
+            body {
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+            .scene-container {
+                position: relative;
+                flex: 1;
+                /* Push house slightly up on mobile to avoid hiding under phone */
+            }
+            .parallax-wrapper {
+                position: relative;
+                padding: 0;
+                justify-content: center;
+                align-items: flex-end;
+                height: 55vh; /* Take up bottom area */
+                background: #0a0a0a;
+                z-index: 20;
+                pointer-events: auto;
+            }
+            .virtual-phone {
+                border-radius: 40px 40px 0 0;
+                border-bottom: none;
+                width: 100%;
+                height: 100%;
+                animation: none;
+                box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-nav">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <a href="index.html" class="flex items-center space-x-2 relative z-50">
+                <div class="w-8 h-8 bg-[#cba35c] rounded-full flex items-center justify-center">
+                    <i data-lucide="sparkles" class="text-white w-5 h-5"></i>
+                </div>
+                <span class="text-2xl font-bold tracking-tight text-white">Lumiere</span>
+            </a>
+
+            <div class="flex items-center space-x-4">
+                <a href="index.html" class="hidden md:block text-sm font-medium text-white/70 hover:text-white mr-6">Exit Simulator</a>
+                
+                <a href="contact.html"
+                    class="bg-[#cba35c] text-white px-6 py-2.5 rounded-full text-sm font-bold hover:shadow-[0_0_15px_rgba(203,163,92,0.5)] transition-all duration-300">
+                    Get a Quote
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Background Scene -->
+    <div class="scene-container" id="scene">
+        <div class="house-bg"></div>
+        
+        <!-- Lights Overlay (Roofline LEDs) -->
+        <div class="light-bloom-layer" id="house-lights" style="color: #cba35c;">
+             <!-- MAIN TOP CENTER PEAK (V-Shape) -->
+             <!-- Left main slope -->
+             <div class="roof-strip w-[24%] top-[18%] left-[18%] rotate-[-30deg]"></div>
+             <!-- Right main slope -->
+             <div class="roof-strip w-[24%] top-[18%] left-[41.5%] rotate-[30deg]"></div>
+             
+             <!-- SECONDARY LOWER PEAK (Left side - Porch/Overhang) -->
+             <!-- Left slope -->
+             <div class="roof-strip w-[16%] top-[34%] left-[6%] rotate-[-25deg]"></div>
+             <!-- Right slope -->
+             <div class="roof-strip w-[16%] top-[34%] left-[21.5%] rotate-[25deg]"></div>
+
+             <!-- HORIZONTAL CONNECTING GUTTERS / TRIMS -->
+             <!-- Mid Level connects center apex to edges -->
+             <div class="roof-strip w-[15%] top-[24.5%] left-[65%] rotate-[0deg]"></div>
+             <div class="roof-strip w-[12%] top-[24.5%] left-[5%] rotate-[0deg]"></div>
+             
+             <!-- Bottom Garage horizontal level trim -->
+             <div class="roof-strip w-[35%] top-[45.5%] left-[3%] rotate-[0deg]"></div>
+             <!-- Side wall lower profiles -->
+             <div class="roof-strip w-[25%] top-[43%] left-[70%] rotate-[0deg]"></div>
+
+             <!-- Ambient inner window glow (simulates bounce behind) -->
+             <div class="absolute w-[8%] h-[6%] top-[30%] left-[46%] rounded-full opacity-65 bg-current filter blur-[20px]"></div>
+        </div>
+    </div>
+
+    <!-- Foreground Phone UI -->
+    <div class="parallax-wrapper" id="parallax">
+        <div class="virtual-phone">
+            <div class="phone-notch"></div>
+            <div class="app-bg">
+                
+                <div class="flex items-center justify-between mb-8 mt-2">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
+                            <i data-lucide="home" class="w-5 h-5 text-white"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500 uppercase tracking-wider font-bold">Location</p>
+                            <p class="text-sm font-bold">Front Elevation</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Power Control -->
+                <div class="bg-zinc-900 rounded-3xl p-6 mb-6 flex items-center justify-between border border-zinc-800">
+                    <div>
+                        <h3 class="font-bold text-lg mb-1">System Power</h3>
+                        <p class="text-xs text-gray-400 font-medium" id="power-status-text">Currently OFF</p>
+                    </div>
+                    <input type="checkbox" id="power-toggle" class="toggle-switch">
+                </div>
+
+                <!-- Presets -->
+                <h4 class="text-xs text-gray-500 uppercase tracking-widest font-bold mb-4 ml-2">Quick Presets</h4>
+                <div class="grid grid-cols-2 gap-4 mb-8">
+                    <button class="preset-btn bg-zinc-900 border border-zinc-800 hover:border-[#cba35c] p-4 rounded-2xl flex flex-col items-center justify-center space-y-2 transition-all active:scale-95 group" data-color="#ffdd99" data-shadow="#cba35c">
+                        <div class="w-8 h-8 rounded-full bg-[#ffdd99] shadow-[0_0_15px_#cba35c]"></div>
+                        <span class="text-xs font-bold text-gray-300 group-hover:text-white">Warm White</span>
+                    </button>
+                    <button class="preset-btn bg-zinc-900 border border-zinc-800 hover:border-[#99ccff] p-4 rounded-2xl flex flex-col items-center justify-center space-y-2 transition-all active:scale-95 group" data-color="#ffffff" data-shadow="#99ccff">
+                        <div class="w-8 h-8 rounded-full bg-white shadow-[0_0_15px_#99ccff]"></div>
+                        <span class="text-xs font-bold text-gray-300 group-hover:text-white">Cool White</span>
+                    </button>
+                </div>
+
+                <!-- RGB Wheel -->
+                <div class="flex-1 flex flex-col items-center justify-center relative">
+                    <h4 class="text-xs text-gray-500 uppercase tracking-widest font-bold mb-4 w-full text-center">Custom Color</h4>
+                    <div class="relative">
+                        <!-- Canvas for Color Picker -->
+                        <canvas id="color-wheel" width="220" height="220" class="rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)] cursor-crosshair relative z-10 opacity-50 transition-opacity duration-300"></canvas>
+                        
+                        <!-- Center active color indicator -->
+                        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-full border-4 border-zinc-900 z-20 transition-colors duration-200 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]" id="active-color-indicator" style="background: #333;"></div>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-6 text-center max-w-[200px]">Drag across the wheel to change architectural colors instantly.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Elements -->
+    <!-- Using base64 blank standard sine waves / generic UI sounds via synthetic oscillator for zero dependencies instead of mp3s -->
+
+    <script>
+        // Initialize Icons
+        lucide.createIcons();
+
+        // ----------------------------------------
+        // PARALLAX EFFECT FOR DESKTOP
+        // ----------------------------------------
+        const parallax = document.getElementById('parallax');
+        const houseBg = document.querySelector('.house-bg');
+        
+        if (window.innerWidth > 768) {
+            document.addEventListener('mousemove', (e) => {
+                const x = (e.clientX / window.innerWidth - 0.5) * 20; // -10 to 10
+                const y = (e.clientY / window.innerHeight - 0.5) * 20;
+                
+                parallax.style.transform = `translate(${-x}px, ${-y}px)`;
+                houseBg.style.transform = `scale(1.05) translate(${x * 0.5}px, ${y * 0.5}px)`;
+            });
+        }
+
+        // ----------------------------------------
+        // LIGHTING SYNCHRONIZATION LOGIC
+        // ----------------------------------------
+        const powerToggle = document.getElementById('power-toggle');
+        const houseLights = document.getElementById('house-lights');
+        const powerStatusText = document.getElementById('power-status-text');
+        const colorWheelCanvas = document.getElementById('color-wheel');
+        const colorIndicator = document.getElementById('active-color-indicator');
+        
+        // Audio Synthesis for UX
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playClickSound() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.05);
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        let humOscillator = null;
+        let humGain = null;
+
+        function toggleHumSound(isOn) {
+            if (isOn) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                humOscillator = audioCtx.createOscillator();
+                humGain = audioCtx.createGain();
+                
+                humOscillator.type = 'triangle';
+                humOscillator.frequency.value = 60; // 60Hz mains hum simulation
+                
+                humGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                humGain.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 1); // Fade in very quietly
+                
+                humOscillator.connect(humGain);
+                humGain.connect(audioCtx.destination);
+                
+                humOscillator.start();
+            } else {
+                if (humGain) {
+                    humGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+                    setTimeout(() => {
+                        if (humOscillator) {
+                            humOscillator.stop();
+                            humOscillator.disconnect();
+                            humOscillator = null;
+                        }
+                    }, 200);
+                }
+            }
+        }
+
+        // State Variables
+        let isSystemOn = false;
+        let currentColor = '#cba35c';
+
+        // Apply Color Function
+        function updateLightingColor(color) {
+            currentColor = color;
+            if (isSystemOn) {
+                houseLights.style.color = color;
+            }
+            colorIndicator.style.backgroundColor = color;
+            colorIndicator.style.boxShadow = `0 0 20px ${color}`;
+        }
+
+        // Power Toggle Event
+        powerToggle.addEventListener('change', (e) => {
+            isSystemOn = e.target.checked;
+            playClickSound();
+            toggleHumSound(isSystemOn);
+            
+            if (isSystemOn) {
+                houseLights.style.opacity = '0.85'; // Turn on
+                houseLights.style.color = currentColor; // Apply current active color
+                powerStatusText.textContent = 'Active & Synced';
+                powerStatusText.style.color = '#cba35c';
+                colorWheelCanvas.classList.remove('opacity-50');
+                colorWheelCanvas.classList.add('opacity-100');
+            } else {
+                houseLights.style.opacity = '0'; // Turn off
+                powerStatusText.textContent = 'Currently OFF';
+                powerStatusText.style.color = ''; // reset
+                colorWheelCanvas.classList.add('opacity-50');
+                colorWheelCanvas.classList.remove('opacity-100');
+            }
+        });
+
+        // Preset Buttons Logic
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!isSystemOn) {
+                    // Auto turn on if a color is picked
+                    powerToggle.checked = true;
+                    powerToggle.dispatchEvent(new Event('change'));
+                }
+                const newColor = btn.getAttribute('data-color');
+                updateLightingColor(newColor);
+            });
+        });
+
+        // ----------------------------------------
+        // RGB WHEEL CANVAS RENDERING & LOGIC
+        // ----------------------------------------
+        const ctx = colorWheelCanvas.getContext('2d', { willReadFrequently: true });
+        const radius = colorWheelCanvas.width / 2;
+        const width = colorWheelCanvas.width;
+        const height = colorWheelCanvas.height;
+
+        function drawColorWheel() {
+            // Draw pure hue wheel
+            for (let angle = 0; angle < 360; angle += 1) {
+                const startAngle = (angle - 0.5) * Math.PI / 180;
+                const endAngle = (angle + 1) * Math.PI / 180;
+                ctx.beginPath();
+                ctx.moveTo(radius, radius);
+                ctx.arc(radius, radius, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = `hsl(${angle}, 100%, 50%)`;
+                ctx.fill();
+            }
+
+            // Draw saturation gradient (white in center fading to transparent)
+            const whiteGradient = ctx.createRadialGradient(radius, radius, 0, radius, radius, radius);
+            whiteGradient.addColorStop(0, 'rgba(255,255,255,1)');
+            whiteGradient.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = whiteGradient;
+            ctx.beginPath();
+            ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Draw brightness gradient (black on outside fading to transparent)
+            // Optional: for full HSV support, but let's keep it vibrant and simple.
+        }
+
+        drawColorWheel();
+
+        // Dragging Logic
+        let isDraggingWheel = false;
+
+        function handleWheelMove(e) {
+            if (!isDraggingWheel) return;
+            
+            // Auto turn on if system is off
+            if (!isSystemOn) {
+                powerToggle.checked = true;
+                powerToggle.dispatchEvent(new Event('change'));
+            }
+
+            const rect = colorWheelCanvas.getBoundingClientRect();
+            
+            // Handle both Mouse and Touch events
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            // Ensure coordinates are within canvas bounds
+            if (x < 0 || x >= width || y < 0 || y >= height) return;
+
+            // Compute distance from center to prevent picking outside the circle corners
+            const dx = x - radius;
+            const dy = y - radius;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > radius) return;
+
+            // Get Pixel Data
+            const pixel = ctx.getImageData(x, y, 1, 1).data;
+            
+            // Convert to RGB string
+            const rgbColor = `rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`;
+            
+            updateLightingColor(rgbColor);
+        }
+
+        colorWheelCanvas.addEventListener('mousedown', (e) => {
+            isDraggingWheel = true;
+            handleWheelMove(e);
+        });
+        window.addEventListener('mouseup', () => {
+            isDraggingWheel = false;
+        });
+        colorWheelCanvas.addEventListener('mousemove', handleWheelMove);
+
+        // Touch support
+        colorWheelCanvas.addEventListener('touchstart', (e) => {
+             // Prevent page scroll when interacting with wheel on mobile
+            e.preventDefault();
+            isDraggingWheel = true;
+            handleWheelMove(e);
+        }, { passive: false });
+        window.addEventListener('touchend', () => {
+            isDraggingWheel = false;
+        });
+        colorWheelCanvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            handleWheelMove(e);
+        }, { passive: false });
+
+    </script>
+</body>
+
+</html>
